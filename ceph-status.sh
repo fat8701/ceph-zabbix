@@ -2,6 +2,11 @@
 
 ceph_bin="/usr/bin/ceph"
 rados_bin="/usr/bin/rados"
+zabbix_sender_bin="/usr/bin/zabbix_sender"
+zabbix_server="xxxxxxx"
+zabbix_host=$(hostname -s)
+
+
 
 # Initialising variables
 # See: http://ceph.com/docs/master/rados/operations/pg-states/
@@ -25,8 +30,8 @@ remapped=0
 
 # Get data
 pginfo=$(echo -n "  pgmap $($ceph_bin pg stat)" | sed -n "s/.*pgmap/pgmap/p")
-pgtotal=$(echo $pginfo | cut -d':' -f2 | sed 's/[^0-9]//g')
-pgstats=$(echo $pginfo | cut -d':' -f3 | cut -d';' -f1| sed 's/ /\\ /g')
+pgtotal=$(echo $pginfo | cut -d' ' -f2 | sed 's/[^0-9]//g')
+pgstats=$(echo $pginfo | cut -d':' -f2 | cut -d';' -f1| sed 's/ /\\ /g')
 pggdegraded=$(echo $pginfo | sed -n '/degraded/s/.* degraded (\([^%]*\)%.*/\1/p')
 if [[ "$pggdegraded" == "" ]]
 then
@@ -39,26 +44,47 @@ then
   pgunfound=0
 fi
 
+
+clientio=$($ceph_bin -s |grep "client:")
+# read  kbps B/s
+#rdbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s rd.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+rdbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)iB\/s rd/\1/p'| sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
 # write kbps B/s
-rdbps=$(echo $pginfo | sed -n '/pgmap/s/.* \([0-9]* .\?\)B\/s rd.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+wrbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)iB\/s wr/\1/p'| sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+#wrbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s wr.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
 if [[ "$rdbps" == "" ]]
 then
   rdbps=0
 fi
 
 # write kbps B/s
-wrbps=$(echo $pginfo | sed -n '/pgmap/s/.* \([0-9]* .\?\)B\/s wr.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+#wrbps=$(echo $pginfo | sed -n '/pgmap/s/.* \([0-9]* .\?\)B\/s wr.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
 if [[ "$wrbps" == "" ]]
 then
   wrbps=0
 fi
 
 # ops
-ops=$(echo $pginfo | sed -n '/pgmap/s/.* \([0-9]*\) op\/s.*/\1/p')
-if [[ "$ops" == "" ]]
+rops=$(echo $clientio | sed -n '/client/s/.* \([0-9]* k\?\)op\/s rd.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
+if [[ "$rops" == "" ]]
 then
-  ops=0
+  rops=0
 fi
+
+wops=$(echo $clientio | sed -n '/client/s/.* \([0-9]* k\?\)op\/s wr.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
+if [[ "$wops" == "" ]]
+then
+  wops=0
+fi
+
+ops=$(echo $rops + $wops | bc)
+
+#ops=$(echo $pginfo | sed -n '/pgmap/s/.* \([0-9]*\) op\/s.*/\1/p')
+#if [[ "$ops" == "" ]]
+#then
+#  ops=0
+#fi
+
 
 # Explode array
 IFS=', ' read -a array <<< "$pgstats"
@@ -184,7 +210,7 @@ function ceph_osd_in_percent()
 
 function ceph_mon_get_active()
 {
-  ACTIVE=$($ceph_bin status|sed -n '/monmap/s/.* \([0-9]*\) mons.*/\1/p')
+  ACTIVE=$($ceph_bin status|sed -n '/mon/s/.* \([0-9]*\) daemons.*/\1/p')
   if [[ "$ACTIVE" != "" ]]
   then
     echo $ACTIVE
@@ -193,33 +219,52 @@ function ceph_mon_get_active()
   fi
 }
 
+function ceph_get()
+{
 # Return the value
 case $1 in
   health)
     status=$($ceph_bin health | awk '{print $1}')
     case $status in
       HEALTH_OK)
-        echo 1
+        echo 0
       ;;
       HEALTH_WARN)
-        echo 2
+        echo 1
       ;;
       HEALTH_ERR)
-        echo 3
+        echo 2
       ;;
       *)
         echo -1
       ;;
     esac
   ;;
+  health_detail)
+    $ceph_bin health detail > /tmp/ceph_detail.txt
+    sed -i 's/$/\\n/g' /tmp/ceph_detail.txt
+    cat /tmp/ceph_detail.txt
+  ;;
+  health_status)
+    status=$($ceph_bin -s)
+    $ceph_bin -s > /tmp/ceph_status.txt
+    sed -i 's/$/\\n/g' /tmp/ceph_status.txt
+    cat /tmp/ceph_status.txt
+  ;;
   rados_total)
-    $rados_bin df | grep "total space"| awk '{print $3}'
+    $rados_bin df | grep "total_space"| cut -d ' ' -f 7
   ;;
   rados_used)
-    $rados_bin df | grep "total used"| awk '{print $3}'
+    $rados_bin df | grep "total_used"| cut -d ' ' -f 8
   ;;
   rados_free)
-    $rados_bin df | grep "total avail"| awk '{print $3}'
+    $rados_bin df | grep "total_avail"| cut -d ' ' -f 7
+  ;;
+  rados_used_ratio)
+	  a=`$rados_bin df | grep "total_used"| cut -d ' ' -f 8`
+	  b=`$rados_bin df | grep "total_space"| cut -d ' ' -f 7`
+	  c=$(echo "scale=2;$a/$b"|bc)
+	  echo $c
   ;;
   mon)
     ceph_mon_get_active
@@ -290,6 +335,12 @@ case $1 in
   remapped)
     echo $remapped
   ;;
+   rops)
+    echo $rops
+  ;;
+ wops)
+    echo $wops
+  ;;
   ops)
     echo $ops
   ;;
@@ -299,4 +350,49 @@ case $1 in
   rdbps)
     echo $rdbps
   ;;
-esac
+  esac
+}
+
+function get_kv()
+{
+	echo - ceph.health $(ceph_get health) \\n 
+	echo - ceph.count $(ceph_get count) \\n 
+	echo - ceph.osd_in $(ceph_get in) \\n
+	echo - ceph.osd_up $(ceph_get up) \\n
+	echo - ceph.active $(ceph_get active) \\n 
+	echo - ceph.backfill $(ceph_get backfill) \\n 
+	echo - ceph.clean $(ceph_get clean) \\n
+	echo - ceph.creating $(ceph_get creating) \\n 
+	echo - ceph.degraded $(ceph_get degraded) \\n
+	echo - ceph.degraded_percent $(ceph_get degraded_percent) \\n 
+	echo - ceph.down $(ceph_get down) \\n
+	echo - ceph.incomplete $(ceph_get incomplete) \\n 
+	echo - ceph.inconsistent $(ceph_get inconsistent) \\n 
+	echo - ceph.peering $(ceph_get peering) \\n
+	echo - ceph.recovering $(ceph_get recovering) \\n 
+	echo - ceph.remapped $(ceph_get remapped) \\n
+	echo - ceph.repair $(ceph_get repair) \\n
+	echo - ceph.replay $(ceph_get replay) \\n
+	echo - ceph.scrubbing $(ceph_get scrubbing) \\n 
+	echo - ceph.splitting $(ceph_get splitting) \\n
+	echo - ceph.stale $(ceph_get stale) \\n
+	echo - ceph.pgtotal $(ceph_get pgtotal) \\n 
+	echo - ceph.waitBackfill $(ceph_get waitBackfill) \\n 
+	echo - ceph.mon $(ceph_get mon) \\n 
+	echo - ceph.rados_total $(ceph_get rados_total) \\n
+	echo - ceph.rados_used $(ceph_get rados_used) \\n
+	echo - ceph.rados_free $(ceph_get rados_free) \\n
+	echo - ceph.rados_used_ratio $(ceph_get rados_used_ratio) \\n
+	echo - ceph.wrbps $(ceph_get wrbps) \\n
+	echo - ceph.rdbps $(ceph_get rdbps) \\n 
+	echo - ceph.ops $(ceph_get ops) \\n 
+	echo - ceph.rops $(ceph_get rops) \\n 
+	echo - ceph.wops $(ceph_get wops) 
+
+	
+}
+#sleep $(echo $RANDOM%50|bc)
+echo -e $(get_kv) >/tmp/zabbix_kv.txt 
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_status -o "`$ceph_bin -s`">> /etc/zabbix/scripts/send.log 2>&1
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_detail -o "`$ceph_bin health detail`" >> /etc/zabbix/scripts/send.log 2>&1
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host --input-file /tmp/zabbix_kv.txt >/etc/zabbix/scripts/send.log 2>&1
