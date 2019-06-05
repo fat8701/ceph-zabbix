@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <zabbix_export>
     <version>3.4</version>
-    <date>2019-04-17T01:18:06Z</date>
+    <date>2019-05-27T08:47:04Z</date>
     <groups>
         <group>
             <name>ceph</name>
+        </group>
+        <group>
+            <name>ceph-test</name>
         </group>
     </groups>
     <templates>
@@ -15,6 +18,9 @@
             <groups>
                 <group>
                     <name>ceph</name>
+                </group>
+                <group>
+                    <name>ceph-test</name>
                 </group>
             </groups>
             <applications>
@@ -816,11 +822,11 @@ other status 255</description>
                     <key>ceph.rados_free</key>
                     <delay>0</delay>
                     <history>90d</history>
-                    <trends>0</trends>
+                    <trends>365d</trends>
                     <status>0</status>
-                    <value_type>4</value_type>
+                    <value_type>3</value_type>
                     <allowed_hosts/>
-                    <units/>
+                    <units>B</units>
                     <snmpv3_contextname/>
                     <snmpv3_securityname/>
                     <snmpv3_securitylevel>0</snmpv3_securitylevel>
@@ -845,12 +851,7 @@ other status 255</description>
                     </applications>
                     <valuemap/>
                     <logtimefmt/>
-                    <preprocessing>
-                        <step>
-                            <type>1</type>
-                            <params>1024</params>
-                        </step>
-                    </preprocessing>
+                    <preprocessing/>
                     <jmx_endpoint/>
                     <master_item/>
                 </item>
@@ -862,11 +863,11 @@ other status 255</description>
                     <key>ceph.rados_total</key>
                     <delay>0</delay>
                     <history>90d</history>
-                    <trends>0</trends>
+                    <trends>365d</trends>
                     <status>0</status>
-                    <value_type>4</value_type>
+                    <value_type>3</value_type>
                     <allowed_hosts/>
-                    <units/>
+                    <units>B</units>
                     <snmpv3_contextname/>
                     <snmpv3_securityname/>
                     <snmpv3_securitylevel>0</snmpv3_securitylevel>
@@ -891,12 +892,7 @@ other status 255</description>
                     </applications>
                     <valuemap/>
                     <logtimefmt/>
-                    <preprocessing>
-                        <step>
-                            <type>1</type>
-                            <params>1024</params>
-                        </step>
-                    </preprocessing>
+                    <preprocessing/>
                     <jmx_endpoint/>
                     <master_item/>
                 </item>
@@ -908,11 +904,11 @@ other status 255</description>
                     <key>ceph.rados_used</key>
                     <delay>0</delay>
                     <history>90d</history>
-                    <trends>0</trends>
+                    <trends>365d</trends>
                     <status>0</status>
-                    <value_type>4</value_type>
+                    <value_type>3</value_type>
                     <allowed_hosts/>
-                    <units/>
+                    <units>B</units>
                     <snmpv3_contextname/>
                     <snmpv3_securityname/>
                     <snmpv3_securitylevel>0</snmpv3_securitylevel>
@@ -937,12 +933,7 @@ other status 255</description>
                     </applications>
                     <valuemap/>
                     <logtimefmt/>
-                    <preprocessing>
-                        <step>
-                            <type>1</type>
-                            <params>1024</params>
-                        </step>
-                    </preprocessing>
+                    <preprocessing/>
                     <jmx_endpoint/>
                     <master_item/>
                 </item>
@@ -1695,7 +1686,7 @@ other status 255</description>
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Ceph Cluster Active:ceph.ops.last(0)}&gt;20000 or&#13;
+            <expression>{Ceph Cluster Active:ceph.ops.last()}&gt;20000 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
@@ -1712,7 +1703,7 @@ other status 255</description>
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Ceph Cluster Active:ceph.osd_up.last()}&lt;1 or&#13;
+            <expression>{Ceph Cluster Active:ceph.osd_up.last()}&lt;100 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
@@ -1729,7 +1720,7 @@ other status 255</description>
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Ceph Cluster Active:ceph.osd_in.last()}&lt;1 or&#13;
+            <expression>{Ceph Cluster Active:ceph.osd_in.last()}&lt;100 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
@@ -1763,7 +1754,7 @@ other status 255</description>
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Ceph Cluster Active:ceph.down.last(0)}&gt;0 or&#13;
+            <expression>{Ceph Cluster Active:ceph.down.last()}&gt;0 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
@@ -1780,7 +1771,7 @@ other status 255</description>
             <tags/>
         </trigger>
         <trigger>
-            <expression>{Ceph Cluster Active:ceph.degraded.last(0)}&gt;0 or&#13;
+            <expression>{Ceph Cluster Active:ceph.degraded.last()}&gt;0 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>

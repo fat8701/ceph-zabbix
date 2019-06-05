@@ -3,7 +3,7 @@
 ceph_bin="/usr/bin/ceph"
 rados_bin="/usr/bin/rados"
 zabbix_sender_bin="/usr/bin/zabbix_sender"
-zabbix_server="xxxxxxx"
+zabbix_server="zabbix.cmdrawin.com"
 zabbix_host=$(hostname -s)
 
 
@@ -210,7 +210,7 @@ function ceph_osd_in_percent()
 
 function ceph_mon_get_active()
 {
-  ACTIVE=$($ceph_bin status|sed -n '/mon/s/.* \([0-9]*\) daemons.*/\1/p')
+  ACTIVE=$($ceph_bin status|sed -n '/mon:/s/.* \([0-9]*\) daemons.*/\1/p')
   if [[ "$ACTIVE" != "" ]]
   then
     echo $ACTIVE
@@ -252,17 +252,22 @@ case $1 in
     cat /tmp/ceph_status.txt
   ;;
   rados_total)
-    $rados_bin df | grep "total_space"| cut -d ' ' -f 7
+    #$rados_bin df | grep "total_space"| cut -d ' ' -f 7
+    $rados_bin df|grep "total_space"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc 
   ;;
   rados_used)
-    $rados_bin df | grep "total_used"| cut -d ' ' -f 8
+    #$rados_bin df | grep "total_used"| cut -d ' ' -f 8
+    $rados_bin df|grep "total_used"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc 
   ;;
   rados_free)
-    $rados_bin df | grep "total_avail"| cut -d ' ' -f 7
+    #$rados_bin df | grep "total_avail"| cut -d ' ' -f 7
+    $rados_bin df|grep "total_avail"| awk -F ' ' '{print $2$3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc
   ;;
   rados_used_ratio)
-	  a=`$rados_bin df | grep "total_used"| cut -d ' ' -f 8`
-	  b=`$rados_bin df | grep "total_space"| cut -d ' ' -f 7`
+	  #a=`$rados_bin df | grep "total_used"| cut -d ' ' -f 8`
+	  a=`$rados_bin df|grep "total_used"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
+	  #b=`$rados_bin df | grep "total_space"| cut -d ' ' -f 7`
+	  b=`$rados_bin df|grep "total_space"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
 	  c=$(echo "scale=2;$a/$b"|bc)
 	  echo $c
   ;;
@@ -388,7 +393,8 @@ function get_kv()
 	echo - ceph.ops $(ceph_get ops) \\n 
 	echo - ceph.rops $(ceph_get rops) \\n 
 	echo - ceph.wops $(ceph_get wops) 
-
+#        echo -n "- ceph.health_status \""$(ceph_get health_status)"\"" \\n
+#	echo -n "- ceph.health_detail \""$(ceph_get health_detail)"\"" 
 	
 }
 #sleep $(echo $RANDOM%50|bc)
@@ -396,3 +402,4 @@ echo -e $(get_kv) >/tmp/zabbix_kv.txt
 $zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_status -o "`$ceph_bin -s`">> /etc/zabbix/scripts/send.log 2>&1
 $zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_detail -o "`$ceph_bin health detail`" >> /etc/zabbix/scripts/send.log 2>&1
 $zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host --input-file /tmp/zabbix_kv.txt >/etc/zabbix/scripts/send.log 2>&1
+
