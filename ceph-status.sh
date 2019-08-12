@@ -48,9 +48,9 @@ fi
 clientio=$($ceph_bin -s |grep "client:")
 # read  kbps B/s
 #rdbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s rd.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
-rdbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)iB\/s rd/\1/p'| sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+rdbps=$(echo $clientio |awk -F ',' '{print $1}'|awk -F ':' '{print $2}'|sed -n 's/\(.*\)B\/s rd/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
 # write kbps B/s
-wrbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)iB\/s wr/\1/p'| sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
+wrbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)B\/s wr/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
 #wrbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s wr.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
 if [[ "$rdbps" == "" ]]
 then
@@ -184,6 +184,8 @@ done
 
 ceph_osd_count=$($ceph_bin osd dump |grep "^osd"| wc -l)
 
+ceph_warn_without_tag=$(ceph health detail|egrep -v "(noout|noscrub|nodeep-scrub) flag\(s\) set"|wc -l)
+
 function ceph_osd_up_percent()
 {
   OSD_DOWN=$($ceph_bin osd dump |grep "^osd"| awk '{print $1 " " $2 " " $3}'|grep up|wc -l)
@@ -253,23 +255,23 @@ case $1 in
   ;;
   rados_total)
     #$rados_bin df | grep "total_space"| cut -d ' ' -f 7
-    $rados_bin df|grep "total_space"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc 
+    $rados_bin df|grep "total_space"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc
   ;;
   rados_used)
     #$rados_bin df | grep "total_used"| cut -d ' ' -f 8
-    $rados_bin df|grep "total_used"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc 
+    $rados_bin df|grep "total_used"| awk -F ' ' '{print $2$3}'| sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc
   ;;
   rados_free)
     #$rados_bin df | grep "total_avail"| cut -d ' ' -f 7
     $rados_bin df|grep "total_avail"| awk -F ' ' '{print $2$3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc
   ;;
   rados_used_ratio)
-	  #a=`$rados_bin df | grep "total_used"| cut -d ' ' -f 8`
-	  a=`$rados_bin df|grep "total_used"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
-	  #b=`$rados_bin df | grep "total_space"| cut -d ' ' -f 7`
-	  b=`$rados_bin df|grep "total_space"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
-	  c=$(echo "scale=2;$a/$b"|bc)
-	  echo $c
+          #a=`$rados_bin df | grep "total_used"| cut -d ' ' -f 8`
+          a=`$rados_bin df|grep "total_used"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
+          #b=`$rados_bin df | grep "total_space"| cut -d ' ' -f 7`
+          b=`$rados_bin df|grep "total_space"| awk -F ' ' '{print $2 $3}' | sed -n 's/\(.*\)iB/\1/p'|sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/T/*1000*1000*1000*1000/i" | bc`
+          c=$(echo "scale=2;$a/$b"|bc)
+          echo $c
   ;;
   mon)
     ceph_mon_get_active
@@ -355,6 +357,9 @@ case $1 in
   rdbps)
     echo $rdbps
   ;;
+  warn_without_tag)
+    echo $ceph_warn_without_tag
+  ;;
   esac
 }
 
@@ -392,7 +397,8 @@ function get_kv()
 	echo - ceph.rdbps $(ceph_get rdbps) \\n 
 	echo - ceph.ops $(ceph_get ops) \\n 
 	echo - ceph.rops $(ceph_get rops) \\n 
-	echo - ceph.wops $(ceph_get wops) 
+	echo - ceph.wops $(ceph_get wops) \\n
+	echo - ceph.tag $(ceph_get warn_without_tag)
 #        echo -n "- ceph.health_status \""$(ceph_get health_status)"\"" \\n
 #	echo -n "- ceph.health_detail \""$(ceph_get health_detail)"\"" 
 	
