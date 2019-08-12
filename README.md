@@ -11,7 +11,7 @@ https://github.com/BodihTao/ceph-zabbix
 3. 添加监控项ceph.health_status、ceph.health_detail
 4. 修改ceph.rados_free、ceph.rados_used、ceph.rados_total变量类型，从数字改为文本；修改ceph.rados_used_ratio类型为浮点数
 5. 触发器修改
-6. 添加加监控项ceph.tag，消除flag set warning
+6. 添加加监控项ceph.tag，消除flag set warning(目前支持noout|noscrub|nodeep-scrub)
 7. 配置server和client地址获取
 
 使用
