@@ -5,7 +5,8 @@ rados_bin="/usr/bin/rados"
 zabbix_sender_bin="/usr/bin/zabbix_sender"
 zabbix_server="zabbix.cmdrawin.com"
 zabbix_host=$(hostname -s)
-
+kv_file="/tmp/zabbix_kv.txt"
+send_log="/etc/zabbix/scripts/send.log"
 
 
 # Initialising variables
@@ -48,9 +49,9 @@ fi
 clientio=$($ceph_bin -s |grep "client:")
 # read  kbps B/s
 #rdbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s rd.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
-rdbps=$(echo $clientio |awk -F ',' '{print $1}'|awk -F ':' '{print $2}'|sed -n 's/\(.*\)B\/s rd/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
+rdbps=$(echo $clientio | sed -n '/client:/s/.* \([0-9\.]* .\{0,2\}\)B\/s rd.*/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
 # write kbps B/s
-wrbps=$(echo $clientio |awk -F ',' '{print $2}' | sed -n 's/\(.*\)B\/s wr/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
+wrbps=$(echo $clientio | sed -n '/client:/s/.* \([0-9\.]* .\{0,2\}\)B\/s wr.*/\1/p'| sed -e "s/Ki/*1000/ig;s/Mi/*1000*1000/ig;s/Gi/*1000*1000*1000/ig;s/Ei/*1000*1000*1000*1000/ig" | bc)
 #wrbps=$(echo $clientio | sed -n '/client/s/.* \([0-9]* .\?\)B\/s wr.*/\1/p' | sed -e "s/K/*1000/ig;s/M/*1000*1000/i;s/G/*1000*1000*1000/i;s/E/*1000*1000*1000*1000/i" | bc)
 if [[ "$rdbps" == "" ]]
 then
@@ -65,13 +66,13 @@ then
 fi
 
 # ops
-rops=$(echo $clientio | sed -n '/client/s/.* \([0-9]* k\?\)op\/s rd.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
+rops=$(echo $clientio | sed -n '/client/s/.* \([0-9\.]* k\?\)op\/s rd.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
 if [[ "$rops" == "" ]]
 then
   rops=0
 fi
 
-wops=$(echo $clientio | sed -n '/client/s/.* \([0-9]* k\?\)op\/s wr.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
+wops=$(echo $clientio | sed -n '/client/s/.* \([0-9\.]* k\?\)op\/s wr.*/\1/p'|sed -e "s/K/*1000/ig"|bc)
 if [[ "$wops" == "" ]]
 then
   wops=0
@@ -185,6 +186,8 @@ done
 ceph_osd_count=$($ceph_bin osd dump |grep "^osd"| wc -l)
 
 ceph_warn_without_tag=$(ceph health detail|egrep -v "(noout|noscrub|nodeep-scrub) flag\(s\) set"|wc -l)
+
+ceph_mds_memory_percent=$(echo "scale=2; `ceph daemon mds.$zabbix_host cache status|jq '.pool.bytes'`*100/`ceph daemon mds.$zabbix_host config show |jq '.mds_cache_memory_limit'|sed 's/\"//g'`" | bc )
 
 function ceph_osd_up_percent()
 {
@@ -360,6 +363,9 @@ case $1 in
   warn_without_tag)
     echo $ceph_warn_without_tag
   ;;
+  mds_memory_percent)
+    echo $ceph_mds_memory_percent
+  ;;
   esac
 }
 
@@ -398,14 +404,16 @@ function get_kv()
 	echo - ceph.ops $(ceph_get ops) \\n 
 	echo - ceph.rops $(ceph_get rops) \\n 
 	echo - ceph.wops $(ceph_get wops) \\n
-	echo - ceph.tag $(ceph_get warn_without_tag)
+	echo - ceph.mds_memory_percent $(ceph_get mds_memory_percent) \\n
+	echo - ceph.tag $(ceph_get warn_without_tag) 
+
 #        echo -n "- ceph.health_status \""$(ceph_get health_status)"\"" \\n
 #	echo -n "- ceph.health_detail \""$(ceph_get health_detail)"\"" 
 	
 }
 #sleep $(echo $RANDOM%50|bc)
-echo -e $(get_kv) >/tmp/zabbix_kv.txt 
-$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_status -o "`$ceph_bin -s`">> /etc/zabbix/scripts/send.log 2>&1
-$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_detail -o "`$ceph_bin health detail`" >> /etc/zabbix/scripts/send.log 2>&1
-$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host --input-file /tmp/zabbix_kv.txt >/etc/zabbix/scripts/send.log 2>&1
+echo -e $(get_kv) > $kv_file
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_status -o "`$ceph_bin -s`">> $send_log 2>&1
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host -k ceph.health_detail -o "`$ceph_bin health detail`" >> $send_log 2>&1
+$zabbix_sender_bin -vv --zabbix-server $zabbix_server --host $zabbix_host --input-file $kv_file > $send_log 2>&1
 
