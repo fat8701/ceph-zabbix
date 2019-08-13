@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <zabbix_export>
     <version>4.2</version>
-    <date>2019-08-12T03:21:52Z</date>
+    <date>2019-08-13T08:15:37Z</date>
     <groups>
         <group>
             <name>ceph</name>
@@ -793,6 +793,65 @@ other status 255</description>
                     <headers/>
                     <retrieve_mode>0</retrieve_mode>
                     <request_method>1</request_method>
+                    <output_format>0</output_format>
+                    <allow_traps>0</allow_traps>
+                    <ssl_cert_file/>
+                    <ssl_key_file/>
+                    <ssl_key_password/>
+                    <verify_peer>0</verify_peer>
+                    <verify_host>0</verify_host>
+                    <master_item/>
+                </item>
+                <item>
+                    <name>Ceph MDS Memory Usage %</name>
+                    <type>2</type>
+                    <snmp_community/>
+                    <snmp_oid/>
+                    <key>ceph.mds_memory_percent</key>
+                    <delay>0</delay>
+                    <history>90d</history>
+                    <trends>365d</trends>
+                    <status>0</status>
+                    <value_type>0</value_type>
+                    <allowed_hosts/>
+                    <units>%</units>
+                    <snmpv3_contextname/>
+                    <snmpv3_securityname/>
+                    <snmpv3_securitylevel>0</snmpv3_securitylevel>
+                    <snmpv3_authprotocol>0</snmpv3_authprotocol>
+                    <snmpv3_authpassphrase/>
+                    <snmpv3_privprotocol>0</snmpv3_privprotocol>
+                    <snmpv3_privpassphrase/>
+                    <params/>
+                    <ipmi_sensor/>
+                    <authtype>0</authtype>
+                    <username/>
+                    <password/>
+                    <publickey/>
+                    <privatekey/>
+                    <port/>
+                    <description>Cephfs memory usage in percent</description>
+                    <inventory_link>0</inventory_link>
+                    <applications>
+                        <application>
+                            <name>Ceph Cluster</name>
+                        </application>
+                    </applications>
+                    <valuemap/>
+                    <logtimefmt/>
+                    <preprocessing/>
+                    <jmx_endpoint/>
+                    <timeout>3s</timeout>
+                    <url/>
+                    <query_fields/>
+                    <posts/>
+                    <status_codes>200</status_codes>
+                    <follow_redirects>1</follow_redirects>
+                    <post_type>0</post_type>
+                    <http_proxy/>
+                    <headers/>
+                    <retrieve_mode>0</retrieve_mode>
+                    <request_method>0</request_method>
                     <output_format>0</output_format>
                     <allow_traps>0</allow_traps>
                     <ssl_cert_file/>
@@ -2363,6 +2422,22 @@ other status 255</description>
     </templates>
     <triggers>
         <trigger>
+            <expression>{Ceph Cluster Active:ceph.mds_memory_percent.avg(3m)}&gt;98 or {Ceph Cluster Active:ceph.mds_memory_percent.avg(3m)}&gt;98 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
+            <recovery_mode>0</recovery_mode>
+            <recovery_expression/>
+            <name>Ceph mds memory使用率过高</name>
+            <correlation_mode>0</correlation_mode>
+            <correlation_tag/>
+            <url/>
+            <status>0</status>
+            <priority>3</priority>
+            <description/>
+            <type>0</type>
+            <manual_close>0</manual_close>
+            <dependencies/>
+            <tags/>
+        </trigger>
+        <trigger>
             <expression>{Ceph Cluster Active:ceph.health.nodata(5m)}=1 or&#13;
 {Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0</expression>
             <recovery_mode>0</recovery_mode>
@@ -2500,7 +2575,7 @@ other status 255</description>
         </trigger>
         <trigger>
             <expression>( {Ceph Cluster Active:ceph.health.avg(3m)}=1 or&#13;
-{Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0 )and {Ceph Cluster Active:ceph.health.delta(3m)}=0 and {Ceph Cluster Active:ceph.tag.last()}&lt;&gt;0</expression>
+{Ceph Cluster Active:ceph.health_status.strlen()}&lt;0 or {Ceph Cluster Active:ceph.health_detail.strlen()}&lt;0 ) and {Ceph Cluster Active:ceph.health.delta(3m)}=0 and {Ceph Cluster Active:ceph.tag.last()}&lt;&gt;0</expression>
             <recovery_mode>0</recovery_mode>
             <recovery_expression/>
             <name>集群WARNING</name>
