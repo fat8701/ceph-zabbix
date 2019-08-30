@@ -185,7 +185,7 @@ done
 
 ceph_osd_count=$($ceph_bin osd dump |grep "^osd"| wc -l)
 
-ceph_warn_without_tag=$(ceph health detail|egrep -v "(noout|noscrub|nodeep-scrub) flag\(s\) set"|wc -l)
+ceph_warn_without_tag=$(ceph health detail|egrep -v "(noout|noscrub|nodeep-scrub) flag\(s\) set"|egrep -v "cephfs failing to respond to cache pressure|clients failing to respond to cache pressure"|wc -l)
 
 ceph_mds_memory_percent=$(echo "scale=2; `ceph daemon mds.$zabbix_host cache status|jq '.pool.bytes'`*100/`ceph daemon mds.$zabbix_host config show |jq '.mds_cache_memory_limit'|sed 's/\"//g'`" | bc )
 
